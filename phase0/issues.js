@@ -6,7 +6,7 @@ async function getData() {
         console.log(response.status);
         return;
     }
-    for(let i = 0; i<5 ; i++) console.log(issues[i].title);
+    for(let i = 0; i<issues.length ; i++) console.log(issues[i].title);
 }
 
 getData();
