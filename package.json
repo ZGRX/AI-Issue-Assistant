@@ -1,0 +1,24 @@
+{
+  "name": "ai-issue-assistant",
+  "version": "1.0.0",
+  "description": "",
+  "main": "test.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZGRX/AI-Issue-Assistant.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ZGRX/AI-Issue-Assistant/issues"
+  },
+  "homepage": "https://github.com/ZGRX/AI-Issue-Assistant#readme",
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
