@@ -8,15 +8,35 @@ interface Issue {
   createdAt: string;
   url: string;
 }
+interface GitHubIssue {
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  labels: { name: string }[];
+  created_at: string;
+  html_url: string;
+}
 const issue: Issue = {
   number: 123,
   title: "Button does not work",
   state: "open",
-  labels: ["bug", "ui"],
+  labels: ["bug ", "ui"],
   createdAt: "2026-10-29T12:00:00Z",
   url: "https://github.com/owner/repo/issues/123",
 };
 
+function toIssue(input: GitHubIssue): Issue {
+  // 返回一个新的 Issue 对象
+    return {
+    number: input.number,
+    title: input.title,
+    state:input.state,
+    labels: input.labels.map((label) => label.name),//map() 的作用是：逐个处理数组里的元素，把每次处理的结果组成一个新数组。
+    createdAt: input.created_at,
+    url:input.html_url
+    // 继续填 title、state、labels、createdAt、url
+  };
+}
 //get owner and string
 function parseGitHubRepoUrl(input: string): { owner: string; repo: string } | null{
     let website;
