@@ -1,20 +1,11 @@
-import { deepStrictEqual } from "node:assert/strict";
 // 定义 Issue 类型
-interface Issue {
+export interface Issue {
   number: number;
   title: string;
   state: "open" | "closed";
   labels: string[];
   createdAt: string;
   url: string;
-}
-interface GitHubIssue {
-  number: number;
-  title: string;
-  state: "open" | "closed";
-  labels: { name: string }[];
-  created_at: string;
-  html_url: string;
 }
 const issue: Issue = {
   number: 123,
@@ -24,21 +15,38 @@ const issue: Issue = {
   createdAt: "2026-10-29T12:00:00Z",
   url: "https://github.com/owner/repo/issues/123",
 };
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  labels: { name: string }[];
+  created_at: string;
+  html_url: string;
+}
+const githubIssue: GitHubIssue = {
+  number: 123,
+  title: "Button does not work",
+  state: "open",
+  labels: [{ name: "bug" }, { name: "ui" }],
+  created_at: "2026-10-29T12:00:00Z",
+  html_url: "https://github.com/owner/repo/issues/123",
+};
 
-function toIssue(input: GitHubIssue): Issue {
+export function toIssue(input: GitHubIssue): Issue {
   // 返回一个新的 Issue 对象
     return {
     number: input.number,
     title: input.title,
     state:input.state,
-    labels: input.labels.map((label) => label.name),//map() 的作用是：逐个处理数组里的元素，把每次处理的结果组成一个新数组。
+    labels: input.labels.map((label) => label.name),//issues 数组里的每条数据交给 toIssue，把返回的结果装进新数组 convertedIssues
     createdAt: input.created_at,
     url:input.html_url
-    // 继续填 title、state、labels、createdAt、url
   };
 }
+
+
 //get owner and string
-function parseGitHubRepoUrl(input: string): { owner: string; repo: string } | null{
+export function parseGitHubRepoUrl(input: string): { owner: string; repo: string } | null{
     let website;
     try{
         website = new URL(input);
@@ -62,7 +70,6 @@ function parseGitHubRepoUrl(input: string): { owner: string; repo: string } | nu
     if (parts[parts.length - 1] === "") {
         parts.pop();
     }
-    console.log(parts);
     if(parts.length !== 2 || !parts[0] || !parts[1]){
         console.log("path is not conform to format");
         return null;
@@ -72,27 +79,31 @@ function parseGitHubRepoUrl(input: string): { owner: string; repo: string } | nu
     return {owner , repo}
 
 }
-//get the repository domain name
-const parsed = parseGitHubRepoUrl("https://github.com/facebook/react/");
-if (parsed !== null) {
-  const apiUrl = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/issues`;//拼接
-  console.log(apiUrl);
-  getData(apiUrl);
+// 直接运行本文件时执行；被测试文件导入时跳过，避免自动请求 GitHub。
+if (require.main === module) {
+  const parsed = parseGitHubRepoUrl("https://github.com/facebook/react/");
+  if (parsed !== null) {
+    const apiUrl = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/issues`;//拼接
+    console.log(apiUrl);
+    getData(apiUrl).then((result) => {//.then(...) 的意思是：等异步函数完成后，用它返回的结果执行一段代码。
+      console.log("Returned:", result);
+    });
+  }
 }
 //get the repository data
-async function getData(apiUrl: string) {
+export async function getData(apiUrl: string):Promise<Issue[] | null> {//Promise<Issue[] | null> 表示：请求结束后，得到 Issue 数组或 null。
   try {
     const response = await fetch(apiUrl);//Response（响应）对象，里面有 HTTP 状态码、响应头和响应正文；
 
     if (!response.ok) {
       console.log("HTTP status:", response.status);
-      return;
+      return null;
     }
     const data: unknown = await response.json();
 
     if (!Array.isArray(data)) {//data是一个数组，不是就返回
     console.log("Response is not an array");
-    return;
+    return null;
     }
 
     //因为这个工具当前要展示的是 Issue 列表，而 GitHub 的 Issues 接口也会把 Pull Request 放进结果里。
@@ -101,13 +112,12 @@ async function getData(apiUrl: string) {
     console.log("API items:", data.length);
     console.log("Issues:", issues.length);
 
+    const convertedIssues = issues.map((item)=>toIssue(item));//
 
     console.log("success, HTTP status:", response.status);
+    return convertedIssues;
   } catch (error) {
     console.log("Network error:", error);
+    return null;
   }
 }
-
-deepStrictEqual(
-    parseGitHubRepoUrl("https://github.com/facebook/react/"),
-    { owner:"facebook",repo:"react"});
