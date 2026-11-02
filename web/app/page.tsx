@@ -9,13 +9,32 @@ export default function Home() {
   ];
   // useState 返回的是一个包含两项的普通数组
   const stateArray = useState(issues[0]);
-
   const selectedIssue = stateArray[0];    // 拿到状态值
   const setSelectedIssue = stateArray[1]; // 拿到修改函数
+  const [repoUrl, setRepoUrl] = useState("");
+  const [submittedRepoUrl, setSubmittedRepoUrl] = useState("");
   return (
     <div className={styles.page}>
       <main className={styles.main}>
         <h1>AI Issue Assistant</h1>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSubmittedRepoUrl(repoUrl);
+          }}
+        >
+          <label>
+            GitHub 仓库地址
+            <input
+              type="text"
+              value={repoUrl}
+              onChange={(event) => setRepoUrl(event.target.value)}
+              placeholder="https://github.com/owner/repo"
+            />
+          </label>
+          <button type="submit">查看 Issue</button>
+        </form>
+        <p>已提交地址：{submittedRepoUrl}</p>
       <ul>
         {issues.map((issue) => (//issues.map(...)：依次处理数组中的每一条 Issue，最后得到一个新的列表项数组。
           <li key={issue.number}>
