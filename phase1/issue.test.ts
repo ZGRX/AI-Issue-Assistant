@@ -10,6 +10,7 @@ function makeGitHubIssue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
   return {
     number: 123,
     title: "Button does not work",
+    body: "Clicking the button does nothing.",
     state: "open",
     labels: [{ name: "bug" }, { name: "ui" }],
     created_at: "2026-10-29T12:00:00Z",
@@ -21,6 +22,7 @@ function makeGitHubIssue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
 const expectedIssue: Issue = {
   number: 123,
   title: "Button does not work",
+  body: "Clicking the button does nothing.",
   state: "open",
   labels: ["bug", "ui"],
   createdAt: "2026-10-29T12:00:00Z",
@@ -75,6 +77,13 @@ for (const url of [
 
 test("Issue 转换：提取标签名称并对应时间和链接字段", () => {
   deepStrictEqual(toIssue(makeGitHubIssue()), expectedIssue);
+});
+
+test("Issue 转换：正文为 null 时显示空字符串", () => {
+  deepStrictEqual(toIssue(makeGitHubIssue({ body: null })), {
+    ...expectedIssue,
+    body: "",
+  });
 });
 
 test("Issue 转换：无标签的 closed Issue 保留空标签数组", () => {

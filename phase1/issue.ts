@@ -2,6 +2,7 @@
 export interface Issue {
   number: number;
   title: string;
+  body: string;
   state: "open" | "closed";
   labels: string[];
   createdAt: string;
@@ -10,6 +11,7 @@ export interface Issue {
 const issue: Issue = {
   number: 123,
   title: "Button does not work",
+  body: "Clicking the button does nothing.",
   state: "open",
   labels: ["bug ", "ui"],
   createdAt: "2026-10-29T12:00:00Z",
@@ -18,6 +20,7 @@ const issue: Issue = {
 export interface GitHubIssue {
   number: number;
   title: string;
+  body: string | null;
   state: "open" | "closed";
   labels: { name: string }[];
   created_at: string;
@@ -26,6 +29,7 @@ export interface GitHubIssue {
 const githubIssue: GitHubIssue = {
   number: 123,
   title: "Button does not work",
+  body: "Clicking the button does nothing.",
   state: "open",
   labels: [{ name: "bug" }, { name: "ui" }],
   created_at: "2026-10-29T12:00:00Z",
@@ -37,6 +41,7 @@ export function toIssue(input: GitHubIssue): Issue {
     return {
     number: input.number,
     title: input.title,
+    body: input.body ?? "",
     state:input.state,
     labels: input.labels.map((label) => label.name),//issues 数组里的每条数据交给 toIssue，把返回的结果装进新数组 convertedIssues
     createdAt: input.created_at,
@@ -80,7 +85,7 @@ export function parseGitHubRepoUrl(input: string): { owner: string; repo: string
 
 }
 // 直接运行本文件时执行；被测试文件导入时跳过，避免自动请求 GitHub。
-if (require.main === module) {
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
   const parsed = parseGitHubRepoUrl("https://github.com/facebook/react/");
   if (parsed !== null) {
     const apiUrl = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/issues`;//拼接
