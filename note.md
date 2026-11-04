@@ -154,3 +154,24 @@ onChange={(event) => setRepoUrl(event.target.value)}
 ### 一句话总结
 
 **`event.target.value` 就是“此时此刻输入框里的最新文字”。**
+
+## JavaScript 的 `URL`
+
+`URL` 是 JavaScript 提供的工具，用来解析和操作网址。小写的 `url` 通常只是我们自己取的变量名。
+
+```ts
+const url = new URL("https://github.com/owner/repo?tab=issues&page=2");
+```
+
+`new URL(...)` 把网址字符串变成一个 `URL` 对象。这个对象的常用属性有：
+
+| 写法 | 含义 | 例子中的结果 |
+| --- | --- | --- |
+| `url.protocol` | 协议 | `"https:"` |
+| `url.hostname` | 域名 | `"github.com"` |
+| `url.pathname` | 路径 | `"/owner/repo"` |
+| `url.searchParams.get("page")` | 读取 `?` 后名为 `page` 的参数 | `"2"` |
+
+`searchParams` 管理网址中 `?` 后面的查询参数。`.get()` 取到的是字符串；参数不存在时返回 `null`。
+
+在当前的 `route.ts` 中，`request.url` 是收到的请求网址。`new URL(request.url)` 用来解析它，再通过 `searchParams.get("page")` 读取页码。创建 `URL` 对象只会解析网址，不会发起网络请求。
