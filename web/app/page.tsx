@@ -24,6 +24,29 @@ function isGitHubRepoUrl(value: string): boolean {
   }
 }
 
+async function fetchIssuePage(repoUrl: string, page: number) {
+  const response = await fetch(
+    `/api/issues?repo=${encodeURIComponent(repoUrl)}&page=${page}`,
+  );
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const data: unknown = await response.json();
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("issues" in data) ||
+    !Array.isArray(data.issues) ||
+    !("hasNextPage" in data) ||
+    typeof data.hasNextPage !== "boolean"
+  ) {
+    throw new Error("接口返回的数据格式不正确");
+  }
+
+  return { issues: data.issues as Issue[], hasNextPage: data.hasNextPage };
+}
+
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState("");
   const [submittedRepoUrl, setSubmittedRepoUrl] = useState("");
@@ -33,6 +56,30 @@ export default function Home() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle",
   );
+
+  const [nextPage, setNextPage] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
+
+  async function loadMore() {
+    if (nextPage === null || loadingMore || status !== "success") return;
+
+    setLoadingMore(true);
+    setLoadMoreError("");
+    try {
+      const result = await fetchIssuePage(submittedRepoUrl, nextPage);
+      setVisibleIssues((previous) => {
+        const seen = new Set(previous.map((issue) => issue.number));
+        return [...previous, ...result.issues.filter((issue) => !seen.has(issue.number))];
+      });
+      setSelectedIssue((previous) => previous ?? result.issues[0] ?? null);
+      setNextPage(result.hasNextPage ? nextPage + 1 : null);
+    } catch {
+      setLoadMoreError("加载下一页失败，请重试。");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   return (
     <div className={styles.page} style={{ background: "#f3f6fb" }}>
@@ -56,6 +103,10 @@ export default function Home() {
         <form
           onSubmit={async (event) => {
             event.preventDefault();
+            if (loadingMore || status === "loading") return;
+
+            setNextPage(null);
+            setLoadMoreError("");
             const submittedUrl = repoUrl.trim();
 
             if (!isGitHubRepoUrl(submittedUrl)) {
@@ -74,26 +125,10 @@ export default function Home() {
             setStatus("loading");
 
             try {
-              const response = await fetch(
-                `/api/issues?repo=${encodeURIComponent(submittedUrl)}`,
-              );
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-
-              const data: unknown = await response.json();
-              if (
-                typeof data !== "object" ||
-                data === null ||
-                !("issues" in data) ||
-                !Array.isArray(data.issues)
-              ) {
-                throw new Error("接口返回的数据格式不正确");
-              }
-
-              const receivedIssues = data.issues as Issue[];
-              setVisibleIssues(receivedIssues);
-              setSelectedIssue(receivedIssues[0] ?? null);
+              const result = await fetchIssuePage(submittedUrl, 1);
+              setVisibleIssues(result.issues);
+              setSelectedIssue(result.issues[0] ?? null);
+              setNextPage(result.hasNextPage ? 2 : null);
               setStatus("success");
             } catch {
               setErrorMessage("获取 Issue 失败，请稍后重试。");
@@ -124,7 +159,7 @@ export default function Home() {
           />
           <button
             type="submit"
-            disabled={status === "loading"}
+            disabled={status === "loading" || loadingMore}
             style={{
               width: "fit-content",
               padding: "11px 18px",
@@ -162,7 +197,7 @@ export default function Home() {
               </p>
             </div>
             {visibleIssues.length === 0 ? (
-              <p>暂无 Issue</p>
+              <p>{nextPage === null ? "暂无 Issue" : "已加载的页面暂无 Issue"}</p>
             ) : (
               <div
                 style={{
@@ -228,6 +263,12 @@ export default function Home() {
                   </section>
                 )}
               </div>
+            )}
+            {loadMoreError && <p role="alert">{loadMoreError}</p>}
+            {nextPage !== null && (
+              <button type="button" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "正在加载…" : "加载更多"}
+              </button>
             )}
           </section>
         )}

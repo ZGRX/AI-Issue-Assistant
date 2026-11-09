@@ -96,7 +96,14 @@ if (typeof require !== "undefined" && typeof module !== "undefined" && require.m
   }
 }
 //get the repository data
-export async function getData(apiUrl: string):Promise<Issue[] | null> {//Promise<Issue[] | null> 表示：请求结束后，得到 Issue 数组或 null。
+export async function getData(apiUrl: string): Promise<Issue[] | null> {
+  const result = await getIssuePage(apiUrl);
+  return result?.issues ?? null;
+}
+
+export async function getIssuePage(
+  apiUrl: string,
+): Promise<{ issues: Issue[]; hasNextPage: boolean } | null> {
   try {
     const response = await fetch(apiUrl);//Response（响应）对象，里面有 HTTP 状态码、响应头和响应正文；
 
@@ -120,7 +127,11 @@ export async function getData(apiUrl: string):Promise<Issue[] | null> {//Promise
     const convertedIssues = issues.map((item)=>toIssue(item));//
 
     console.log("success, HTTP status:", response.status);
-    return convertedIssues;
+    const link = response.headers.get("link") ?? "";
+    return {
+      issues: convertedIssues,
+      hasNextPage: /;\s*rel="next"/.test(link),
+    };
   } catch (error) {
     console.log("Network error:", error);
     return null;
