@@ -31,7 +31,7 @@ async function fetchIssuePage(repoUrl: string, page: number) {
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
-
+  
   const data: unknown = await response.json();
   if (
     typeof data !== "object" ||
@@ -60,6 +60,24 @@ export default function Home() {
   const [nextPage, setNextPage] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState("");
+  const [analysis, setAnalysis] = useState<{
+  summary: string;
+  type: string;
+  reason: string;
+} | null>(null);
+  async function analyzeIssue() {
+    if (selectedIssue === null) return;
+    
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+      title: selectedIssue.title,
+      body: selectedIssue.body,}),
+    });
+    const result = await response.json();
+    setAnalysis(result)
+  }
 
   async function loadMore() {
     if (nextPage === null || loadingMore || status !== "success") return;
@@ -260,6 +278,15 @@ export default function Home() {
                     <p style={{ lineHeight: 1.7, marginTop: 14 }}>
                       {selectedIssue.body}
                     </p>
+                    <button type="button" onClick={analyzeIssue}>
+                      分析这条 Issue
+                    </button>
+                    {analysis && (
+                      <section>
+                        <h3>示例分析</h3>
+                        <p>摘要：{analysis.summary}</p>
+                      </section>
+                    )}
                   </section>
                 )}
               </div>
