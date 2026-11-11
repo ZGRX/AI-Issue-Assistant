@@ -1,14 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { Issue } from "../../phase1/issue";
 import styles from "./page.module.css";
-
-type Issue = {
-  number: number;
-  title: string;
-  state: string;
-  body: string;
-};
 
 function isGitHubRepoUrl(value: string): boolean {
   try {
@@ -61,22 +55,49 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState("");
   const [analysis, setAnalysis] = useState<{
-  summary: string;
-  type: string;
-  reason: string;
-} | null>(null);
+    issue: Issue;
+    summary: string;
+    type: string;
+    reason: string;
+  } | null>(null);
+  const [analysisError, setAnalysisError] = useState<{
+    issue: Issue;
+    message: string;
+  } | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
   async function analyzeIssue() {
-    if (selectedIssue === null) return;
-    
-    const response = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-      title: selectedIssue.title,
-      body: selectedIssue.body,}),
-    });
-    const result = await response.json();
-    setAnalysis(result)
+    const issue = selectedIssue;
+    if (issue === null || isAnalyzing) return;
+
+    setIsAnalyzing(true);
+    setAnalysis(null);
+    setAnalysisError(null);
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: issue.title, body: issue.body }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || "分析失败，请重试。");
+      }
+      setAnalysis({
+        issue,
+        summary: result.summary,
+        type: result.type,
+        reason: result.reason,
+      });
+    } catch (error) {
+      setAnalysisError({
+        issue,
+        message: error instanceof Error ? error.message : "分析失败，请重试。",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   }
 
   async function loadMore() {
@@ -100,25 +121,14 @@ export default function Home() {
   }
 
   return (
-    <div className={styles.page} style={{ background: "#f3f6fb" }}>
-      <main
-        className={styles.main}
-        style={{
-          gap: 28,
-          justifyContent: "flex-start",
-          background: "#ffffff",
-          color: "#172334",
-        }}
-      >
-        <header>
-          <p style={{ color: "#526782", marginBottom: 8 }}>GitHub Issue 浏览器</p>
-          <h1 style={{ fontSize: 36, lineHeight: 1.2 }}>AI Issue Assistant</h1>
-          <p style={{ color: "#526782", marginTop: 12 }}>
-            输入公开仓库地址，查看 Issue 列表和详情。
-          </p>
+    <div className={styles.page}>
+      <main className={styles.main}>
+        <header className={styles.intro}>
+          <h1>AI Issue Assistant</h1>
+          <p>浏览公开 GitHub 仓库的 Issue，按需生成摘要和分类。</p>
         </header>
 
-        <form
+        <form className={styles.form}
           onSubmit={async (event) => {
             event.preventDefault();
             if (loadingMore || status === "loading") return;
@@ -153,150 +163,142 @@ export default function Home() {
               setStatus("error");
             }
           }}
-          style={{ width: "100%", display: "grid", gap: 12 }}
         >
-          <label htmlFor="repo-url" style={{ fontWeight: 600 }}>
-            GitHub 仓库地址
-          </label>
-          <input
-            id="repo-url"
-            type="url"
-            required
-            value={repoUrl}
-            onChange={(event) => setRepoUrl(event.target.value)}
-            placeholder="https://github.com/owner/repo"
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              border: "1px solid #b9c6d8",
-              borderRadius: 8,
-              fontSize: 16,
-              color: "#172334",
-              background: "#ffffff",
-            }}
-          />
-          <button
-            type="submit"
-            disabled={status === "loading" || loadingMore}
-            style={{
-              width: "fit-content",
-              padding: "11px 18px",
-              border: 0,
-              borderRadius: 8,
-              background: "#2459d3",
-              color: "#ffffff",
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: status === "loading" ? "wait" : "pointer",
-            }}
-          >
-            查看 Issue
-          </button>
+          <label htmlFor="repo-url">GitHub 仓库地址</label>
+          <div className={styles.formControls}>
+            <input
+              id="repo-url"
+              type="url"
+              required
+              value={repoUrl}
+              onChange={(event) => setRepoUrl(event.target.value)}
+              placeholder="https://github.com/owner/repo"
+            />
+            <button
+              className={styles.primary}
+              type="submit"
+              disabled={status === "loading" || loadingMore}
+            >
+              {status === "loading" ? "正在加载…" : "查看 Issue"}
+            </button>
+          </div>
         </form>
 
-        {status === "idle" && (
-          <p style={{ color: "#526782" }}>输入仓库地址并提交，即可查看 Issue。</p>
-        )}
         {status === "error" && (
-          <p role="alert" style={{ color: "#b42318" }}>
-            {errorMessage}
-          </p>
+          <p className={styles.error} role="alert">{errorMessage}</p>
         )}
         {status === "loading" && (
-          <p role="status" style={{ color: "#526782" }}>
-            正在加载 Issue...
-          </p>
+          <p className={styles.notice} role="status">正在获取仓库 Issue…</p>
         )}
         {status === "success" && (
-          <section style={{ width: "100%", display: "grid", gap: 20 }}>
-            <div>
-              <p style={{ overflowWrap: "anywhere" }}>
-                已提交地址：{submittedRepoUrl}
-              </p>
+          <section className={styles.results} aria-label="仓库 Issue">
+            <div className={styles.resultsHeader}>
+              <h2>{new URL(submittedRepoUrl).pathname.replace(/^\/|\/$/g, "")}</h2>
+              <p>已加载 {visibleIssues.length} 条 Issue</p>
             </div>
-            {visibleIssues.length === 0 ? (
-              <p>{nextPage === null ? "暂无 Issue" : "已加载的页面暂无 Issue"}</p>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                  gap: 20,
-                }}
-              >
-                <section aria-label="Issue 列表">
-                  <h2 style={{ fontSize: 20, marginBottom: 12 }}>Issue 列表</h2>
-                  <ul style={{ listStyle: "none", display: "grid", gap: 8 }}>
+
+            <div className={styles.workspace}>
+              <section className={styles.panel} aria-label="Issue 列表">
+                <h3 className={styles.listHeading}>Issue 列表</h3>
+                {visibleIssues.length === 0 ? (
+                  <p className={styles.notice}>
+                    {nextPage === null ? "暂无 Issue" : "当前已加载的页面暂无 Issue"}
+                  </p>
+                ) : (
+                  <ul className={styles.issueList}>
                     {visibleIssues.map((issue) => (
                       <li key={issue.number}>
                         <button
                           type="button"
+                          className={styles.issueRow}
                           onClick={() => setSelectedIssue(issue)}
                           aria-pressed={selectedIssue?.number === issue.number}
-                          style={{
-                            width: "100%",
-                            padding: 14,
-                            border: "1px solid #d9e1ed",
-                            borderRadius: 8,
-                            background:
-                              selectedIssue?.number === issue.number
-                                ? "#eaf1ff"
-                                : "#ffffff",
-                            color: "#172334",
-                            textAlign: "left",
-                            cursor: "pointer",
-                          }}
                         >
-                          <span style={{ display: "block", fontWeight: 600 }}>
-                            #{issue.number} {issue.title}
-                          </span>
-                          <span style={{ color: "#526782", fontSize: 14 }}>
-                            {issue.state === "open" ? "进行中" : "已关闭"}
+                          <span className={styles.issueNumber}>#{issue.number}</span>
+                          <span className={styles.issueTitle}>{issue.title}</span>
+                          <span className={styles.status} data-open={issue.state === "open"}>
+                            {issue.state === "open" ? "开放" : "已关闭"}
                           </span>
                         </button>
                       </li>
                     ))}
                   </ul>
-                </section>
-
-                {selectedIssue && (
-                  <section
-                    aria-label="Issue 详情"
-                    style={{
-                      padding: 20,
-                      border: "1px solid #d9e1ed",
-                      borderRadius: 10,
-                      alignSelf: "start",
-                    }}
-                  >
-                    <p style={{ color: "#526782", fontSize: 14 }}>
-                      Issue #{selectedIssue.number} · {selectedIssue.state}
-                    </p>
-                    <h2 style={{ fontSize: 22, marginTop: 10 }}>
-                      {selectedIssue.title}
-                    </h2>
-                    <p style={{ lineHeight: 1.7, marginTop: 14 }}>
-                      {selectedIssue.body}
-                    </p>
-                    <button type="button" onClick={analyzeIssue}>
-                      分析这条 Issue
+                )}
+                {loadMoreError && <p className={styles.error} role="alert">{loadMoreError}</p>}
+                {nextPage !== null && (
+                  <div className={styles.listFooter}>
+                    <button
+                      className={styles.secondary}
+                      type="button"
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? "正在加载…" : "加载更多"}
                     </button>
-                    {analysis && (
-                      <section>
-                        <h3>示例分析</h3>
-                        <p>摘要：{analysis.summary}</p>
-                      </section>
+                  </div>
+                )}
+              </section>
+
+              {selectedIssue && (
+                <section className={styles.detail} aria-label="Issue 详情">
+                  <div className={styles.detailMeta}>
+                    <span className={styles.issueNumber}>#{selectedIssue.number}</span>
+                    <span className={styles.status} data-open={selectedIssue.state === "open"}>
+                      {selectedIssue.state === "open" ? "开放" : "已关闭"}
+                    </span>
+                    {selectedIssue.createdAt && (
+                      <time dateTime={selectedIssue.createdAt}>
+                        {selectedIssue.createdAt.slice(0, 10)}
+                      </time>
+                    )}
+                    {selectedIssue.url?.startsWith("https://github.com/") && (
+                      <a href={selectedIssue.url} target="_blank" rel="noreferrer">
+                        GitHub 原文 ↗
+                      </a>
+                    )}
+                  </div>
+                  <h3 className={styles.detailTitle}>{selectedIssue.title}</h3>
+                  {selectedIssue.labels?.length > 0 && (
+                    <ul className={styles.labels} aria-label="标签">
+                      {selectedIssue.labels.map((label) => <li key={label}>{label}</li>)}
+                    </ul>
+                  )}
+                  <section className={styles.analysis} aria-label="AI 分析">
+                    <button
+                      className={styles.primary}
+                      type="button"
+                      onClick={analyzeIssue}
+                      disabled={isAnalyzing}
+                    >
+                      {isAnalyzing ? "正在分析…" : "分析这条 Issue"}
+                    </button>
+                    {isAnalyzing && <span role="status" className={styles.srOnly}>正在分析 Issue</span>}
+                    {analysisError?.issue === selectedIssue && (
+                      <p className={styles.error} role="alert">{analysisError.message}</p>
+                    )}
+                    {analysis?.issue === selectedIssue && (
+                      <div className={styles.analysisResult} role="status">
+                        <div className={styles.analysisHeading}>
+                          <h4>AI 分析结果</h4>
+                          <span className={styles.category}>{analysis.type}</span>
+                        </div>
+                        <dl>
+                          <dt>摘要</dt>
+                          <dd>{analysis.summary}</dd>
+                          <dt>判断依据</dt>
+                          <dd>{analysis.reason}</dd>
+                        </dl>
+                        <p className={styles.disclaimer}>AI 分析可能不准确，请以 Issue 原文为准。</p>
+                      </div>
                     )}
                   </section>
-                )}
-              </div>
-            )}
-            {loadMoreError && <p role="alert">{loadMoreError}</p>}
-            {nextPage !== null && (
-              <button type="button" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? "正在加载…" : "加载更多"}
-              </button>
-            )}
+                  <section className={styles.description}>
+                    <h4>正文</h4>
+                    <p>{selectedIssue.body || "此 Issue 没有正文。"}</p>
+                  </section>
+                </section>
+              )}
+            </div>
           </section>
         )}
       </main>
